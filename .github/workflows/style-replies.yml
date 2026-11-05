@@ -69,10 +69,22 @@ jobs:
           NOTION_STYLE_URLS: ${{ vars.NOTION_STYLE_URLS }}
         run: ${{ runner.temp }}/style-review load-rules
 
-      # Workaround for cv/pi-action#26: its npm `prepare` script runs
-      # `prek install`, which fails unless the action directory is a git repo.
-      - name: Make pi-action directory a git repo
-        run: git init -q "${{ runner.workspace }}/../_actions/cv/pi-action/v1.10.0"
+      # Workarounds for cv/pi-action@v1.10.0:
+      # - #26: its npm `prepare` script runs `prek install`, which fails unless
+      #   the action directory is a git repo.
+      # - It hardcodes thinkingLevel "off", which Pi sends as reasoning effort
+      #   "none" (rejected by gpt-6.1-sol). Use thinking_level from pi-config.json.
+      - name: Prepare pi-action
+        env:
+          PI_ACTION_DIR: ${{ runner.workspace }}/../_actions/cv/pi-action/v1.10.0
+          THINKING_LEVEL: ${{ steps.pi-config.outputs.thinking_level }}
+        run: |
+          git init -q "$PI_ACTION_DIR"
+          if [ "$THINKING_LEVEL" != off ]; then
+            f="$PI_ACTION_DIR/src/agent-session.ts"
+            sed -i "s/thinkingLevel: \"off\",/thinkingLevel: \"$THINKING_LEVEL\",/" "$f"
+            grep -q "thinkingLevel: \"$THINKING_LEVEL\"," "$f" || { echo "::error::Could not set Pi thinking level in $f"; exit 1; }
+          fi
 
       - name: Ask Pi about the review rules
         id: pi

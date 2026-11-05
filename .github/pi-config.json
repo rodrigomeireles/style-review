@@ -2,6 +2,7 @@
   "provider": "openai-custom",
   "model": "gpt-6.1-sol",
   "timeout": "1000",
+  "thinking_level": "low",
   "custom_model": {
     "base_url": "https://api.openai.com/v1",
     "api": "openai-responses",

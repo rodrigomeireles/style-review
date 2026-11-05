@@ -31,6 +31,7 @@ Notion sources must be pages accessible to the integration. The loader uses `Not
      "provider": "openai-custom",
      "model": "gpt-6.1-sol",
      "timeout": "1000",
+     "thinking_level": "low",
      "custom_model": {
        "base_url": "https://api.openai.com/v1",
        "api": "openai-responses",
@@ -42,6 +43,8 @@ Notion sources must be pages accessible to the integration. The loader uses `Not
      }
    }
    ```
+
+   `thinking_level` (`off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; default `off`) sets the reasoning effort. `cv/pi-action@v1.10.0` hardcodes `off`, which Pi sends as effort `none` (rejected by `gpt-6.1-sol`), so the workflows patch the action's source before running it. Pi clamps levels the model doesn't support; a custom model without a level map tops out at `high`.
 
    `custom_model` is optional. It registers a model the Pi bundled with `cv/pi-action@v1.10.0` doesn't know (its OpenAI list ends at `gpt-5.6`), using the action's `provider_base_url` and `model_*` inputs. `api_key_env` names the environment variable holding the key. Use a provider name other than a built-in one; for a model Pi already knows, drop `custom_model` and set e.g. `"provider": "openai"`.
 

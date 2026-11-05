@@ -41,6 +41,8 @@ func run(command string) error {
 			Provider string          `json:"provider"`
 			Model    string          `json:"model"`
 			Timeout  json.RawMessage `json:"timeout"`
+			// ThinkingLevel replaces pi-action's hardcoded "off" (see the workflows' prepare step).
+			ThinkingLevel string `json:"thinking_level"`
 			// CustomModel registers a model the Pi bundled in cv/pi-action does not know yet.
 			CustomModel *struct {
 				BaseURL       string `json:"base_url"`
@@ -60,6 +62,13 @@ func run(command string) error {
 		if strings.TrimSpace(c.Provider) == "" || strings.TrimSpace(c.Model) == "" || err != nil || n <= 0 {
 			return errors.New("Invalid Pi configuration")
 		}
+		thinking := c.ThinkingLevel
+		if thinking == "" {
+			thinking = "off"
+		}
+		if !regexp.MustCompile(`^(off|minimal|low|medium|high|xhigh|max)$`).MatchString(thinking) {
+			return errors.New("Invalid Pi thinking_level: use off, minimal, low, medium, high, xhigh or max")
+		}
 		// Empty outputs leave pi-action's defaults (no custom provider) in place.
 		custom := map[string]string{"provider_base_url": "", "provider_api": "", "provider_api_key": "",
 			"model_reasoning": "", "model_input": "", "model_context_window": "", "model_max_tokens": ""}
@@ -76,6 +85,7 @@ func run(command string) error {
 		core.SetOutput("provider", c.Provider)
 		core.SetOutput("model", c.Model)
 		core.SetOutput("timeout", timeout)
+		core.SetOutput("thinking_level", thinking)
 		for k, v := range custom {
 			core.SetOutput(k, v)
 		}

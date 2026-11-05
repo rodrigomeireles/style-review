@@ -364,14 +364,14 @@ func TestConfigCustomModel(t *testing.T) {
 	}
 
 	got, err := outputs(t, `{"provider":"openai","model":"gpt-5.6-sol","timeout":"60"}`)
-	if err != nil || got["model"] != "gpt-5.6-sol" || got["provider_base_url"] != "" || got["model_context_window"] != "" {
+	if err != nil || got["model"] != "gpt-5.6-sol" || got["thinking_level"] != "off" || got["provider_base_url"] != "" || got["model_context_window"] != "" {
 		t.Fatalf("without custom_model: %v %v", err, got)
 	}
 
-	got, err = outputs(t, `{"provider":"openai-custom","model":"gpt-6.1-sol","timeout":"60","custom_model":{
+	got, err = outputs(t, `{"provider":"openai-custom","model":"gpt-6.1-sol","timeout":"60","thinking_level":"low","custom_model":{
 		"base_url":"https://api.openai.com/v1","api":"openai-responses","api_key_env":"OPENAI_API_KEY",
 		"reasoning":true,"input":"text","context_window":1050000,"max_tokens":128000}}`)
-	want := map[string]string{"provider": "openai-custom", "provider_base_url": "https://api.openai.com/v1",
+	want := map[string]string{"provider": "openai-custom", "thinking_level": "low", "provider_base_url": "https://api.openai.com/v1",
 		"provider_api": "openai-responses", "provider_api_key": "$OPENAI_API_KEY", "model_reasoning": "true",
 		"model_input": "text", "model_context_window": "1050000", "model_max_tokens": "128000"}
 	for k, v := range want {
@@ -382,5 +382,8 @@ func TestConfigCustomModel(t *testing.T) {
 
 	if _, err = outputs(t, `{"provider":"x","model":"y","timeout":"60","custom_model":{"base_url":"http://x"}}`); err == nil {
 		t.Fatal("incomplete custom_model accepted")
+	}
+	if _, err = outputs(t, `{"provider":"x","model":"y","timeout":"60","thinking_level":"low\"; rm -rf /"}`); err == nil {
+		t.Fatal("invalid thinking_level accepted")
 	}
 }
