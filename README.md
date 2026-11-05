@@ -16,7 +16,7 @@ Notion sources must be pages accessible to the integration. The loader uses `Not
 
 1. Add your rule sources:
    - **STYLE.md:** commit the file at the repository root.
-   - **Notion:** create an integration with **Read content**, then connect it to each style page through the page menu → Connections. Store its token in the Actions secret `NOTION_API_KEY` and set the Actions variable `NOTION_STYLE_URLS` to one page URL per line:
+   - **Notion:** create an integration with **Read content**, then connect it to each style page through the page menu → Connections. Store its token in the Actions secret `NOTION_API_KEY` (or `NOTION_ACCESS_TOKEN`, used when `NOTION_API_KEY` is unset) and set the Actions variable `NOTION_STYLE_URLS` to one page URL per line:
 
      ```text
      https://www.notion.so/Go-Conventions-0123456789abcdef0123456789abcdef

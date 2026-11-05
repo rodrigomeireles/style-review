@@ -65,7 +65,7 @@ jobs:
       - name: Load style rules to runner files
         id: notion
         env:
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY || secrets.NOTION_ACCESS_TOKEN }}
           NOTION_STYLE_URLS: ${{ vars.NOTION_STYLE_URLS }}
         run: ${{ runner.temp }}/style-review load-rules
 

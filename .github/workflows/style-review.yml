@@ -23,7 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          # The event's base.sha can predate the reviewer landing on the base branch.
+          ref: ${{ github.event.pull_request.base.ref }}
           persist-credentials: false
           fetch-depth: 0
 
@@ -45,7 +46,7 @@ jobs:
       - name: Load style rules to runner files
         id: notion
         env:
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY || secrets.NOTION_ACCESS_TOKEN }}
           NOTION_STYLE_URLS: ${{ vars.NOTION_STYLE_URLS }}
         run: ${{ runner.temp }}/style-review load-rules
 
