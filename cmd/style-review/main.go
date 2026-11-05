@@ -205,6 +205,17 @@ func validRange(f finding, lines map[int]int) bool {
 	return true
 }
 
+// alreadyCommented reports whether a comment on path already raised this rule.
+// Comments from before path+citation markers are matched by the rule's link.
+func alreadyCommented(existing []*gh.PullRequestComment, path, marker, ruleURL string) bool {
+	for _, c := range existing {
+		if c.GetPath() == path && (strings.Contains(c.GetBody(), marker) || strings.Contains(c.GetBody(), "]("+ruleURL+")")) {
+			return true
+		}
+	}
+	return false
+}
+
 func draftComment(f finding, body string) *gh.DraftReviewComment {
 	comment := &gh.DraftReviewComment{Path: gh.Ptr(f.Path), Line: gh.Ptr(f.Line), Side: gh.Ptr("RIGHT"), Body: &body}
 	if f.StartLine != nil && *f.StartLine < f.Line {
@@ -219,12 +230,11 @@ func markdownText(s string) string {
 	return r.Replace(s)
 }
 
-func renderFinding(f finding, c citation, head, revision string) (string, string) {
-	data, _ := json.Marshal([]any{head, revision, f.Path, f.Line, f.Source, f.Citation, f.Rule, f.Message})
-	if f.StartLine != nil && *f.StartLine < f.Line {
-		data = append(data, []byte(fmt.Sprintf(":start_line:%d", *f.StartLine))...)
-	}
-	hash := sha256.Sum256(data)
+// renderFinding returns the comment body and a dedupe marker. The marker covers
+// only the file and cited rule: Pi's wording and chosen line vary between runs
+// (even on the same commit), so including them let every run repeat itself.
+func renderFinding(f finding, c citation) (string, string) {
+	hash := sha256.Sum256([]byte(f.Path + "\x00" + f.Citation))
 	marker := fmt.Sprintf("<!-- pi-style:%x -->", hash[:10])
 	body := fmt.Sprintf("**Style — %s**\n\n[%s](%s)\n\n%s", markdownText(f.Rule), markdownText(c.Excerpt), c.URL, f.Message)
 	if f.Suggestion != nil {
@@ -281,16 +291,14 @@ func publishReview(ctx context.Context, c *gh.Client, a actions.ActionContext) e
 		}
 		opts.Page = r.NextPage
 	}
-	var existing []string
+	var existing []*gh.PullRequestComment
 	opts = &gh.ListOptions{PerPage: 100}
 	for {
 		comments, r, e := c.PullRequests.ListComments(ctx, owner, repo, n, &gh.PullRequestListCommentsOptions{ListOptions: *opts})
 		if e != nil {
 			return e
 		}
-		for _, v := range comments {
-			existing = append(existing, v.GetBody())
-		}
+		existing = append(existing, comments...)
 		if r.NextPage == 0 {
 			break
 		}
@@ -316,15 +324,9 @@ func publishReview(ctx context.Context, c *gh.Client, a actions.ActionContext) e
 			core.Warning("Skipping invalid, uncited or out-of-diff finding")
 			continue
 		}
-		body, marker := renderFinding(f, cite, pr.GetHead().GetSHA(), revision)
-		duplicate := seen[marker]
-		for _, b := range existing {
-			if strings.Contains(b, marker) {
-				duplicate = true
-				break
-			}
-		}
-		if duplicate {
+		body, marker := renderFinding(f, cite)
+		if seen[marker] || alreadyCommented(existing, f.Path, marker, cite.URL) {
+			core.Info(fmt.Sprintf("Skipping repeat of %s on %s", f.Citation, f.Path))
 			continue
 		}
 		seen[marker] = true

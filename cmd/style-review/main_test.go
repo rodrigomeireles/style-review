@@ -47,7 +47,7 @@ func TestExactCitation(t *testing.T) {
 	if !validCitation("N1:"+id, c) {
 		t.Fatal("valid citation rejected")
 	}
-	body, marker := renderFinding(finding{Rule: "Errors", Message: "Wrap the error"}, c, "head", "revision")
+	body, marker := renderFinding(finding{Rule: "Errors", Message: "Wrap the error"}, c)
 	if !strings.Contains(body, "[Preserve \\[error\\] context.]("+c.URL+")") || !strings.Contains(body, marker) {
 		t.Fatalf("missing exact excerpt hyperlink: %s", body)
 	}
@@ -156,19 +156,17 @@ func TestDraftCommentRanges(t *testing.T) {
 
 func TestMultilineSuggestion(t *testing.T) {
 	f := finding{Line: 12, Suggestion: gh.Ptr("    first\n    second\n")}
-	body, single := renderFinding(f, citation{}, "head", "revision")
+	body, single := renderFinding(f, citation{})
 	if !strings.Contains(body, "```suggestion\n    first\n    second\n```") {
 		t.Fatalf("multiline replacement lost: %s", body)
 	}
 	f.StartLine = gh.Ptr(11)
-	body, ranged := renderFinding(f, citation{}, "head", "revision")
-	if single == ranged || !strings.Contains(body, "```suggestion\n    first\n    second\n```") {
-		t.Fatal("range marker or replacement incorrect")
+	body, ranged := renderFinding(f, citation{})
+	if !strings.Contains(body, "```suggestion\n    first\n    second\n```") {
+		t.Fatal("range replacement incorrect")
 	}
-	f.StartLine = gh.Ptr(12)
-	_, equal := renderFinding(f, citation{}, "head", "revision")
-	if single != equal {
-		t.Fatal("equivalent single-line locations must deduplicate")
+	if single != ranged {
+		t.Fatal("same file and rule must share a dedupe marker regardless of location")
 	}
 }
 
@@ -208,7 +206,7 @@ func TestStyleRules(t *testing.T) {
 	if c.URL != "https://github.com/owner/repo/blob/"+sha+"/STYLE.md#L3" || c.Excerpt != "Preserve [error] context." || !validCitation("STYLE:L3", c) {
 		t.Fatalf("wrong citation: %+v", c)
 	}
-	body, _ := renderFinding(finding{Rule: "Errors"}, c, "head", "revision")
+	body, _ := renderFinding(finding{Rule: "Errors"}, c)
 	if !strings.Contains(body, "[Preserve \\[error\\] context.]("+c.URL+")") {
 		t.Fatalf("excerpt: %s", body)
 	}
@@ -385,5 +383,33 @@ func TestConfigCustomModel(t *testing.T) {
 	}
 	if _, err = outputs(t, `{"provider":"x","model":"y","timeout":"60","thinking_level":"low\"; rm -rf /"}`); err == nil {
 		t.Fatal("invalid thinking_level accepted")
+	}
+}
+
+func TestDedupeAcrossRuns(t *testing.T) {
+	c := citation{URL: "https://www.notion.so/page#block", Excerpt: "Add tests."}
+	first := finding{Path: "main.py", Line: 310, Source: "N2", Citation: "N2:block", Rule: "Tests", Message: "No tests."}
+	second := finding{Path: "main.py", Line: 312, Source: "N2", Citation: "N2:block", Rule: "Testing rule", Message: "Blocking: add tests."}
+	body, m1 := renderFinding(first, c)
+	_, m2 := renderFinding(second, c)
+	if m1 != m2 {
+		t.Fatal("reworded or moved finding for the same rule must share a marker")
+	}
+	if _, other := renderFinding(finding{Path: "other.py", Citation: "N2:block"}, c); other == m1 {
+		t.Fatal("different file must not share a marker")
+	}
+	if _, other := renderFinding(finding{Path: "main.py", Citation: "N2:other"}, c); other == m1 {
+		t.Fatal("different rule must not share a marker")
+	}
+	posted := []*gh.PullRequestComment{{Path: gh.Ptr("main.py"), Body: gh.Ptr(body)}}
+	if !alreadyCommented(posted, "main.py", m2, c.URL) {
+		t.Fatal("marker match missed")
+	}
+	legacy := []*gh.PullRequestComment{{Path: gh.Ptr("main.py"), Body: gh.Ptr("**Style — x**\n\n[Add tests.](" + c.URL + ")\n\nmsg\n\n<!-- pi-style:0123 -->")}}
+	if !alreadyCommented(legacy, "main.py", m2, c.URL) {
+		t.Fatal("legacy comment with the same rule link missed")
+	}
+	if alreadyCommented(legacy, "other.py", m2, c.URL) {
+		t.Fatal("comment on another file must not count")
 	}
 }

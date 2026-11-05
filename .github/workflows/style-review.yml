@@ -107,6 +107,12 @@ jobs:
             Only publishing inline findings is constrained to ADDED diff lines;
             exploration is not limited to changed files or diff context.
             Report only clear violations with a publishable inline location.
+            Before reporting, read this PR's existing review threads and replies, e.g.
+            gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --paginate and
+            gh pr view ${{ github.event.pull_request.number }} --comments. Do not report a finding that an existing
+            comment already raised, even if worded differently or on a nearby line,
+            or that a reply addressed, explained, or declined. Only report it again if
+            new commits introduced a new, distinct occurrence.
 
             Output ONLY valid JSON (no Markdown fence), with this schema:
             {"findings":[{"path":"relative/file.go","line":13,"start_line":12,
