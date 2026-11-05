@@ -18,9 +18,9 @@ jobs:
     if: >-
       ${{
         (
-          (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@pi')) ||
-          (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@pi')) ||
-          (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@pi'))
+          (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@pi_review')) ||
+          (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@pi_review')) ||
+          (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@pi_review'))
         ) &&
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
                  github.event.comment.author_association || github.event.review.author_association) &&
@@ -94,8 +94,10 @@ jobs:
           provider: ${{ steps.pi-config.outputs.provider }}
           model: ${{ steps.pi-config.outputs.model }}
           pr_number: ${{ steps.pr.outputs.number }}
+          # Not a valid GitHub username (no underscores allowed), so it never notifies anyone.
+          trigger_phrase: "@pi_review"
           prompt: |
-            Reply to this @pi question using the file-based style rules.
+            Reply to this @pi_review question using the file-based style rules.
             Comment or review:
             ${{ github.event.comment.body || github.event.review.body }}
             File in discussion: ${{ github.event.comment.path }}
