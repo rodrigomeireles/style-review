@@ -67,8 +67,10 @@ func run(command string) error {
 			if !strings.HasPrefix(m.BaseURL, "https://") || m.API == "" || m.APIKeyEnv == "" || m.ContextWindow <= 0 || m.MaxTokens <= 0 {
 				return errors.New("Invalid Pi custom_model: base_url (https), api, api_key_env, context_window and max_tokens are required")
 			}
-			custom = map[string]string{"provider_base_url": m.BaseURL, "provider_api": m.API, "provider_api_key": m.APIKeyEnv,
-				"model_reasoning": strconv.FormatBool(m.Reasoning), "model_input": m.Input,
+			custom = map[string]string{"provider_base_url": m.BaseURL, "provider_api": m.API,
+				// Pi treats "$NAME" as an env reference; a bare NAME would be sent as the literal key.
+				"provider_api_key": "$" + m.APIKeyEnv,
+				"model_reasoning":  strconv.FormatBool(m.Reasoning), "model_input": m.Input,
 				"model_context_window": strconv.Itoa(m.ContextWindow), "model_max_tokens": strconv.Itoa(m.MaxTokens)}
 		}
 		core.SetOutput("provider", c.Provider)

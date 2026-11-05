@@ -372,7 +372,7 @@ func TestConfigCustomModel(t *testing.T) {
 		"base_url":"https://api.openai.com/v1","api":"openai-responses","api_key_env":"OPENAI_API_KEY",
 		"reasoning":true,"input":"text","context_window":1050000,"max_tokens":128000}}`)
 	want := map[string]string{"provider": "openai-custom", "provider_base_url": "https://api.openai.com/v1",
-		"provider_api": "openai-responses", "provider_api_key": "OPENAI_API_KEY", "model_reasoning": "true",
+		"provider_api": "openai-responses", "provider_api_key": "$OPENAI_API_KEY", "model_reasoning": "true",
 		"model_input": "text", "model_context_window": "1050000", "model_max_tokens": "128000"}
 	for k, v := range want {
 		if err != nil || got[k] != v {
