@@ -1,0 +1,132 @@
+name: Pi Notion Style Review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pi-notion-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Skip fork PRs. Do not execute untrusted PR code with secrets.
+    if: >-
+      ${{ !github.event.pull_request.draft &&
+          github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20 # this should preferably be dependant on the PR size
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '26.13.0'
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.3'
+
+      - name: Build workflow CLI
+        run: go build -o "${{ runner.temp }}/style-review" ./cmd/style-review
+
+      - name: Load shared Pi configuration
+        id: pi-config
+        run: ${{ runner.temp }}/style-review config
+
+      - name: Load style rules to runner files
+        id: notion
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_STYLE_URLS: ${{ vars.NOTION_STYLE_URLS }}
+        run: ${{ runner.temp }}/style-review load-rules
+
+      - name: Review PR against Notion rules with Pi
+        id: pi
+        uses: cv/pi-action@v1.10.0
+        with:
+          github_token: ${{ github.token }}
+          provider: ${{ steps.pi-config.outputs.provider }}
+          model: ${{ steps.pi-config.outputs.model }}
+          pr_number: ${{ github.event.pull_request.number }}
+          prompt: Review this PR for violations of the file-based style rules
+          output_mode: output
+          share_session: false
+          timeout: ${{ steps.pi-config.outputs.timeout }}
+          prompt_template: |
+            You review code against the style rules in the file below.
+            These rules are the ONLY authority for code-style requirements.
+            Do not invent additional requirements.
+
+            Use your available tools to inspect the full repository, not just the diff.
+            The checkout starts at the PR base commit with full Git history.
+            Fetch and inspect the PR head and any additional files or repositories
+            needed to understand the changes. Use git, gh, and other tools as needed.
+            GH_TOKEN is available for authenticated GitHub CLI requests within the
+            workflow token's permissions; other private repositories may need extra access.
+            For authenticated Git operations, you can run gh auth setup-git.
+            Do not treat the supplied diff as the limit of your investigation.
+            Identify the relevant entrypoint(s), if any (for example handlers, commands,
+            jobs, or exported APIs), and trace their call and dependency paths through
+            the changed code. Fetch additional code as needed to understand callers,
+            callees, configuration, and tests. If no entrypoint applies, inspect the
+            relevant module and its consumers instead; do not invent an entrypoint.
+            Only publishing inline findings is constrained to ADDED diff lines;
+            exploration is not limited to changed files or diff context.
+            Report only clear violations with a publishable inline location.
+
+            Output ONLY valid JSON (no Markdown fence), with this schema:
+            {"findings":[{"path":"relative/file.go","line":13,"start_line":12,
+            "source":"N1","citation":"N1:exact-block-id-from-citation-map","rule":"specific rule heading or quote",
+            "message":"why this changed code violates the rule",
+            "suggestion":"first replacement line\nsecond replacement line"}]}
+            line is the inclusive end line in the PR head. Optional start_line is the
+            inclusive first line; omit it for a single-line location. Every original
+            line in the range must be a contiguous ADDED line in the same supplied
+            GitHub file patch hunk (no context lines or cross-hunk ranges).
+            suggestion replaces the entire selected line or range and may contain
+            multiple lines. Use null when no safe complete replacement exists.
+            Use {"findings":[]} when there are no violations.
+            Every source must be a file source identifier: STYLE or N1, N2, etc.
+            STYLE.md is authoritative when present; it overrides conflicting Notion rules.
+            STYLE citations use keys such as STYLE:L3 from the verified map.
+            Every finding must select a citation key from the verified source citations.
+            Select the line or block containing the actual violated rule, not just its heading.
+            Suggestions must include original indentation.
+
+            ## Active style rules
+            Rules file (absolute path): ${{ steps.notion.outputs.context_file }}
+            Before reviewing or responding, use your existing file-reading tools to read
+            this ENTIRE file, including all verified citation JSON. If a tool truncates
+            output, keep reading in chunks until every part has been read. Do not proceed
+            if the file cannot be read completely. Use only its source identifiers,
+            exact citation keys, URLs and excerpts; never fabricate citations.
+
+            ## Pull request
+            {{title}}
+            {{body}}
+
+            ## Changed code
+            ```diff
+            {{diff}}
+            ```
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Publish inline comments and apply-able suggestions
+        run: ${{ runner.temp }}/style-review publish-review
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PI_RULES_METADATA_FILE: ${{ steps.notion.outputs.metadata_file }}
+          PI_RESPONSE: ${{ steps.pi.outputs.response }}
+          PI_SUCCESS: ${{ steps.pi.outputs.success }}
+          PI_NOTION_REVISION: ${{ steps.notion.outputs.revision }}

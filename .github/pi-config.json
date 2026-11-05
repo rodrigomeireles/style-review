@@ -1,0 +1,5 @@
+{
+  "provider": "openai",
+  "model": "gpt-6.1-sol",
+  "timeout": "1000"
+}
