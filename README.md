@@ -54,7 +54,7 @@ Notion sources must be pages accessible to the integration. The loader uses `Not
 
    Keep the workflows' separate `timeout-minutes` job limits large enough for Pi and the surrounding steps.
 4. Add `.github/workflows/*.yml`, `cmd/style-review/*.go`, `go.mod`, `go.sum`, and `.github/pi-config.json` to the repository's default branch.
-5. Open a same-repository PR, or mention `@pi_review` in a PR comment as an owner, member, or collaborator.
+5. Open a same-repository PR, or mention `@pi_review` in a PR comment as a user with write access to the repository.
 
 ### Providers
 
@@ -88,7 +88,7 @@ Pull request or @pi_review mention
   → Publish inline comments, applicable suggestions, or replies
 ```
 
-- Reviews run for same-repository, ready-for-review PRs on creation, reopen, new commits, and marking ready. `@pi_review` replies support PR conversation comments, diff comments, and review summaries from authorized collaborators.
+- Reviews run for same-repository, ready-for-review PRs on creation, reopen, new commits, and marking ready. `@pi_review` replies support PR conversation comments, diff comments, and review summaries from users with write access (checked through the API; `author_association` is unreliable for private org members).
 - Pi traces relevant entrypoints, calls, dependencies, and consumers, using the full checkout and additional context as needed. It has the runner's available tools and access, including authenticated GitHub CLI requests through `GH_TOKEN`.
 - Inline findings identify a rule heading and verified source citation, and target an added PR line. The publisher validates citations and locations, then posts a comment or an **Apply suggestion** block. Replies use the same sources in free-form answers.
 - For multiline findings, `start_line` and `line` select an inclusive PR-head range. Every selected line must be added within the same GitHub patch hunk and present in GitHub's supplied patch. Omit `start_line` for a single line; equal endpoints also publish as a single-line finding. Replacement text can contain multiple lines.

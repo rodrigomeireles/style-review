@@ -14,7 +14,9 @@ permissions:
   pull-requests: write
 
 jobs:
-  reply:
+  # author_association is unreliable for private org members (it is NONE on
+  # diff-comment and review events), so check the author's repo permission.
+  authorize:
     if: >-
       ${{
         (
@@ -22,10 +24,30 @@ jobs:
           (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@pi_review')) ||
           (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@pi_review'))
         ) &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-                 github.event.comment.author_association || github.event.review.author_association) &&
         github.actor != 'github-actions[bot]'
       }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      allowed: ${{ steps.permission.outputs.allowed }}
+    steps:
+      - name: Require write access
+        id: permission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.comment.user.login || github.event.review.user.login }}
+        run: |
+          permission=$(gh api "repos/$REPO/collaborators/$AUTHOR/permission" --jq .permission) || permission=none
+          echo "$AUTHOR has $permission permission"
+          case "$permission" in
+            admin|maintain|write) echo "allowed=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "allowed=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+  reply:
+    needs: authorize
+    if: needs.authorize.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
