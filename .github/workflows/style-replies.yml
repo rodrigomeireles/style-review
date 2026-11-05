@@ -69,6 +69,11 @@ jobs:
           NOTION_STYLE_URLS: ${{ vars.NOTION_STYLE_URLS }}
         run: ${{ runner.temp }}/style-review load-rules
 
+      # Workaround for cv/pi-action#26: its npm `prepare` script runs
+      # `prek install`, which fails unless the action directory is a git repo.
+      - name: Make pi-action directory a git repo
+        run: git init -q "${{ runner.workspace }}/../_actions/cv/pi-action/v1.10.0"
+
       - name: Ask Pi about the review rules
         id: pi
         uses: cv/pi-action@v1.10.0
