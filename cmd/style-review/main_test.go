@@ -330,3 +330,57 @@ func TestLargeNotionRules(t *testing.T) {
 		t.Fatalf("large exact citation: %v", err)
 	}
 }
+
+func TestConfigCustomModel(t *testing.T) {
+	outputs := func(t *testing.T, config string) (map[string]string, error) {
+		dir := t.TempDir()
+		t.Chdir(dir)
+		if err := os.MkdirAll(".github", 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(".github/pi-config.json", []byte(config), 0600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("GITHUB_ACTIONS", "true")
+		t.Setenv("GITHUB_OUTPUT", dir+"/outputs.txt")
+		if err := os.WriteFile(dir+"/outputs.txt", nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := run("config"); err != nil {
+			return nil, err
+		}
+		b, err := os.ReadFile(dir + "/outputs.txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]string{}
+		lines := strings.Split(string(b), "\n")
+		for i, line := range lines {
+			if key, _, ok := strings.Cut(line, "<<"); ok && i+1 < len(lines) {
+				got[key] = lines[i+1]
+			}
+		}
+		return got, nil
+	}
+
+	got, err := outputs(t, `{"provider":"openai","model":"gpt-5.6-sol","timeout":"60"}`)
+	if err != nil || got["model"] != "gpt-5.6-sol" || got["provider_base_url"] != "" || got["model_context_window"] != "" {
+		t.Fatalf("without custom_model: %v %v", err, got)
+	}
+
+	got, err = outputs(t, `{"provider":"openai-custom","model":"gpt-6.1-sol","timeout":"60","custom_model":{
+		"base_url":"https://api.openai.com/v1","api":"openai-responses","api_key_env":"OPENAI_API_KEY",
+		"reasoning":true,"input":"text","context_window":1050000,"max_tokens":128000}}`)
+	want := map[string]string{"provider": "openai-custom", "provider_base_url": "https://api.openai.com/v1",
+		"provider_api": "openai-responses", "provider_api_key": "OPENAI_API_KEY", "model_reasoning": "true",
+		"model_input": "text", "model_context_window": "1050000", "model_max_tokens": "128000"}
+	for k, v := range want {
+		if err != nil || got[k] != v {
+			t.Fatalf("custom_model %s = %q, want %q (err %v)", k, got[k], v, err)
+		}
+	}
+
+	if _, err = outputs(t, `{"provider":"x","model":"y","timeout":"60","custom_model":{"base_url":"http://x"}}`); err == nil {
+		t.Fatal("incomplete custom_model accepted")
+	}
+}

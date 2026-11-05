@@ -1,5 +1,14 @@
 {
-  "provider": "openai",
+  "provider": "openai-custom",
   "model": "gpt-6.1-sol",
-  "timeout": "1000"
+  "timeout": "1000",
+  "custom_model": {
+    "base_url": "https://api.openai.com/v1",
+    "api": "openai-responses",
+    "api_key_env": "OPENAI_API_KEY",
+    "reasoning": true,
+    "input": "text",
+    "context_window": 1050000,
+    "max_tokens": 128000
+  }
 }

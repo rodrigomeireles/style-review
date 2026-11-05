@@ -41,6 +41,16 @@ func run(command string) error {
 			Provider string          `json:"provider"`
 			Model    string          `json:"model"`
 			Timeout  json.RawMessage `json:"timeout"`
+			// CustomModel registers a model the Pi bundled in cv/pi-action does not know yet.
+			CustomModel *struct {
+				BaseURL       string `json:"base_url"`
+				API           string `json:"api"`
+				APIKeyEnv     string `json:"api_key_env"`
+				Reasoning     bool   `json:"reasoning"`
+				Input         string `json:"input"`
+				ContextWindow int    `json:"context_window"`
+				MaxTokens     int    `json:"max_tokens"`
+			} `json:"custom_model"`
 		}
 		if err = json.Unmarshal(b, &c); err != nil {
 			return err
@@ -50,9 +60,23 @@ func run(command string) error {
 		if strings.TrimSpace(c.Provider) == "" || strings.TrimSpace(c.Model) == "" || err != nil || n <= 0 {
 			return errors.New("Invalid Pi configuration")
 		}
+		// Empty outputs leave pi-action's defaults (no custom provider) in place.
+		custom := map[string]string{"provider_base_url": "", "provider_api": "", "provider_api_key": "",
+			"model_reasoning": "", "model_input": "", "model_context_window": "", "model_max_tokens": ""}
+		if m := c.CustomModel; m != nil {
+			if !strings.HasPrefix(m.BaseURL, "https://") || m.API == "" || m.APIKeyEnv == "" || m.ContextWindow <= 0 || m.MaxTokens <= 0 {
+				return errors.New("Invalid Pi custom_model: base_url (https), api, api_key_env, context_window and max_tokens are required")
+			}
+			custom = map[string]string{"provider_base_url": m.BaseURL, "provider_api": m.API, "provider_api_key": m.APIKeyEnv,
+				"model_reasoning": strconv.FormatBool(m.Reasoning), "model_input": m.Input,
+				"model_context_window": strconv.Itoa(m.ContextWindow), "model_max_tokens": strconv.Itoa(m.MaxTokens)}
+		}
 		core.SetOutput("provider", c.Provider)
 		core.SetOutput("model", c.Model)
 		core.SetOutput("timeout", timeout)
+		for k, v := range custom {
+			core.SetOutput(k, v)
+		}
 		return nil
 	case "load-notion", "load-rules":
 		return loadNotion(ctx)

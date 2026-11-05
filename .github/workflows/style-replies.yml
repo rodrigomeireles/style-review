@@ -92,6 +92,13 @@ jobs:
           output_mode: output
           share_session: false
           timeout: ${{ steps.pi-config.outputs.timeout }}
+          provider_base_url: ${{ steps.pi-config.outputs.provider_base_url }}
+          provider_api: ${{ steps.pi-config.outputs.provider_api }}
+          provider_api_key: ${{ steps.pi-config.outputs.provider_api_key }}
+          model_reasoning: ${{ steps.pi-config.outputs.model_reasoning }}
+          model_input: ${{ steps.pi-config.outputs.model_input }}
+          model_context_window: ${{ steps.pi-config.outputs.model_context_window }}
+          model_max_tokens: ${{ steps.pi-config.outputs.model_max_tokens }}
           prompt_template: |
             You answer questions about the file-based code-style rules.
             STYLE.md is authoritative when present and overrides conflicting Notion rules.

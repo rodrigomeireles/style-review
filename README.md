@@ -28,11 +28,22 @@ Notion sources must be pages accessible to the integration. The loader uses `Not
 
    ```json
    {
-     "provider": "openai",
+     "provider": "openai-custom",
      "model": "gpt-6.1-sol",
-     "timeout": "1000"
+     "timeout": "1000",
+     "custom_model": {
+       "base_url": "https://api.openai.com/v1",
+       "api": "openai-responses",
+       "api_key_env": "OPENAI_API_KEY",
+       "reasoning": true,
+       "input": "text",
+       "context_window": 1050000,
+       "max_tokens": 128000
+     }
    }
    ```
+
+   `custom_model` is optional. It registers a model the Pi bundled with `cv/pi-action@v1.10.0` doesn't know (its OpenAI list ends at `gpt-5.6`), using the action's `provider_base_url` and `model_*` inputs. `api_key_env` names the environment variable holding the key. Use a provider name other than a built-in one; for a model Pi already knows, drop `custom_model` and set e.g. `"provider": "openai"`.
 
    The loader writes complete rules and verified citation JSON to a private temporary file in `RUNNER_TEMP` (the system temporary directory locally). A second private JSON file holds source/citation metadata for the publisher. Only absolute file paths and the small rules revision cross Actions outputs; rules and metadata are not transported in environment variables. Both Pi prompts require reading the entire rules file with existing tools before reviewing or answering. Rules containing template-like text remain file data, not action templates.
 
